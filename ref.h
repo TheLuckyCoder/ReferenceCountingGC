@@ -6,8 +6,14 @@ template <typename T>
 class ref
 {
 public:
+	explicit ref(T &&arg)
+	{
+		_ptr = new T(std::forward<T>(arg));
+		_info = gc::new_ref(_ptr);
+	}
+	
 	template <typename... Args>
-	ref(Args && ...args)
+	explicit ref(Args && ...args)
 	{
 		_ptr = new T(std::forward<Args>(args)...);
 		_info = gc::new_ref(_ptr);
@@ -33,10 +39,16 @@ public:
 	{
 		if (_info)
 			_info->dec_references();
+
+		_ptr = nullptr;
+		_info = nullptr;
 	}
 
 	ref &operator=(const ref &other) noexcept
 	{
+		if(this == &other)
+			return *this;
+		
 		_ptr = other._ptr;
 		_info = other._info;
 		_info->inc_references();

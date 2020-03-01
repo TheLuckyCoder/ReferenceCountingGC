@@ -17,10 +17,22 @@ namespace gc
 		};
 
 	public:
+		info() = default;
+		
 		template <typename T>
 		explicit info(T *t) : ptr((void*)(t)), deleter(&Manager<T>::deleter), ref_count(1)
 		{
 		}
+
+		template <typename T>
+		void construct(T *t)
+		{
+			ptr = (void*)(t);
+			deleter = &Manager<T>::deleter;
+			ref_count = 1;
+		}
+
+		void destroy();
 
 		info(info &&other) noexcept;
 		~info();
@@ -33,8 +45,8 @@ namespace gc
 		bool no_references() const noexcept;
 
 	private:
-		void *ptr;
-		void (*deleter)(const void *);
-		std::atomic_size_t ref_count;
+		void *ptr = nullptr;
+		void (*deleter)(const void *) = nullptr;
+		std::atomic_size_t ref_count{};
 	};
 }

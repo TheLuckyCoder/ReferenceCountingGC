@@ -4,6 +4,14 @@
 
 namespace gc
 {
+	void info::destroy()
+	{
+		if (ptr && deleter)
+			std::invoke(deleter, ptr);
+		ptr = nullptr;
+		deleter = nullptr;
+	}
+
 	info::info(info &&other) noexcept
 		: ptr(other.ptr), deleter(other.deleter), ref_count(static_cast<std::size_t>(other.ref_count))
 	{
@@ -13,10 +21,7 @@ namespace gc
 
 	info::~info()
 	{
-		if (ptr && deleter)
-			std::invoke(deleter, ptr);
-		ptr = nullptr;
-		deleter = nullptr;
+		destroy();
 	}
 
 	info &info::operator=(info &&other) noexcept

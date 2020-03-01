@@ -22,14 +22,14 @@ int run_test()
 {
 	std::vector<ref<test_struct>> vec;
 
-	ref<int> sum;
+	ref sum(0);
 	for (int i = 0; i < 4096; ++i)
 	{
 		ref<test_struct> a(i);
 		if (i & 1)
 			vec.push_back(a);
 
-		*sum += *(a->ptr);
+		*sum += *a->ptr;
 	}
 	return *sum;
 }
@@ -41,8 +41,6 @@ int main()
 	{
 		threads.emplace_back(run_test);
 	}
-	
-	ref<int> a;
 
 	for (auto &t : threads)
 		t.join();

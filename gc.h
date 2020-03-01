@@ -3,14 +3,13 @@
 #include <mutex>
 
 #include "gc_list.h"
-#include "info.h"
 
 namespace gc
 {
 	struct internal
 	{
 		static std::mutex list_mutex;
-		static gc_list<info> info_list;
+		static gc_list info_list;
 	
 		internal() = delete;
 	};

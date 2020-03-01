@@ -2,126 +2,98 @@
 
 #include <vector>
 
+#include "info.h"
+
 namespace gc
 {
-	template <class T>
 	class gc_list
 	{
 		static constexpr std::size_t LIST_SIZE = 4096;
-		
+
 	public:
-		using vector_type = std::vector<T>;
-		using size_type = typename vector_type::size_type;
-		using value_type = typename vector_type::value_type;
-		using pointer = typename vector_type::pointer;
-		using const_pointer = typename vector_type::const_pointer;
-		using reference = typename vector_type::reference;
-		using const_reference = typename vector_type::const_reference;
-		using iterator = typename vector_type::iterator;
-		using const_iterator = typename vector_type::const_iterator;
-		using reverse_iterator = typename vector_type::reverse_iterator;
-		using const_reverse_iterator = typename vector_type::const_reverse_iterator;
+		using size_type = std::size_t;
+		using value_type = info;
+		using pointer = value_type*;
+		using const_pointer = const value_type*;
+		using reference = value_type&;
+		using const_reference = const value_type&;
+		using iterator = pointer;
+		using const_iterator = const_pointer;
 
 		gc_list()
 		{
-			_data.reserve(LIST_SIZE);
 			_free_indexes.reserve(LIST_SIZE);
+			for (size_type i = 0; i < LIST_SIZE; ++i)
+				_free_indexes.push_back(i);
 		}
 
-		gc_list(const gc_list &) noexcept = default;
-		gc_list(gc_list &&) noexcept = default;
+		gc_list(const gc_list &) noexcept = delete;
+		gc_list(gc_list &&) noexcept = delete;
 		~gc_list() = default;
 
-		gc_list &operator=(const gc_list &) noexcept = default;
-		gc_list &operator=(gc_list &&) noexcept = default;
+		gc_list &operator=(const gc_list &) noexcept = delete;
+		gc_list &operator=(gc_list &&) noexcept = delete;
 
 		// Element Access
-		reference at(const size_type pos) noexcept(false) { return _data.at(pos); }
-		const_reference at(const size_type pos) const noexcept(false) { return _data.at(pos); }
-
 		reference operator[](const size_type pos) noexcept(false) { return _data[pos]; }
 		const_reference operator[](const size_type pos) const noexcept(false) { return _data[pos]; }
 
-		reference front() noexcept { return _data.front(); }
-		const_reference front() const noexcept { return _data.front(); }
-
-		reference back() noexcept { return _data.back(); }
-		const_reference back() const noexcept { return _data.back(); }
-
-		reference data() noexcept { return _data.data(); }
-		const_reference data() const noexcept { return _data.data(); }
+		// Capacity
+		size_type capacity() const noexcept { return LIST_SIZE; }
+		size_type empty() const noexcept { return capacity() - _free_indexes.size(); }
+		size_type full() const noexcept { return _free_indexes.empty(); }
+		size_type used_size() const noexcept { return capacity() - _free_indexes.size(); }
+		size_type unused_space() const noexcept { return _free_indexes.size(); }
 
 		// Iterators
-		auto begin() noexcept { return _data.begin(); }
-		auto begin() const noexcept { return _data.begin(); }
+		iterator begin() noexcept { return _data; }
+		const_iterator begin() const noexcept { return _data; }
 
-		auto end() noexcept { return _data.end(); }
-		auto end() const noexcept { return _data.end(); }
-
-		auto rbegin() noexcept { return _data.rbegin(); }
-		auto rbegin() const noexcept { return _data.rbegin(); }
-
-		auto rend() noexcept { return _data.rend(); }
-		auto rend() const noexcept { return _data.rend(); }
-
-		// Capacity
-		bool empty() const noexcept { return _data.empty(); }
-		auto size() const noexcept { return _data.size(); }
-		auto capacity() const noexcept { return _data.capacity(); }
-		auto used_size() const noexcept { return _data.size() - _free_indexes.size(); }
-		auto free_space() const noexcept { return capacity() - used_size(); }
+		iterator end() noexcept { return _data + capacity(); }
+		const_iterator end() const noexcept { return _data + capacity(); }
 
 		// Modifiers
 		void clear() noexcept
 		{
-			_data.clear();
+			for (info &item : _data)
+			{
+				if (item.is_valid())
+					item.destroy();
+			}
 			_free_indexes.clear();
 		}
 
-		/**
-		 * @returns true if the last element was popped
-		 */
-		bool erase(const_iterator it)
+		void erase(const iterator it)
 		{
-			if (it == end() - 1)
-			{
-				pop_back();
-				return true;
-			}
-
-			(*it).~T();
-			_free_indexes.push_back(it);
-			return false;
+			(*it).destroy();
+			_free_indexes.push_back(begin() - it);
 		}
 
-		template <class... Args>
-		reference emplace_back(Args &&... args)
+		void erase(const size_type index)
 		{
-			return _data.emplace_back(std::forward<Args>(args)...);
+			_data[index].destroy();
+			_free_indexes.push_back(index);
 		}
 
-		template <class... Args>
-		reference emplace(const_iterator it, Args &&... args)
+		template <class T>
+		reference emplace(const size_type index, const T *arg)
 		{
-			return *_data.emplace(it, std::forward<Args>(args)...);
+			info &info = _data[index];
+			info.construct(arg);
+			return info;
 		}
 
-		template <class... Args>
-		reference add_element(Args &&... args)
+		template <class T>
+		reference add_element(const T *arg)
 		{
-			if (_free_indexes.empty())
-				return emplace_back(std::forward<Args>(args)...);
-
-			const auto emptyIndex = _free_indexes.back();
+			const size_type emptyIndex = _free_indexes.back();
 			_free_indexes.pop_back();
 
-			return emplace(emptyIndex, std::forward<Args>(args)...);
+			return emplace(emptyIndex, arg);
 		}
 
-		void pop_back() noexcept { _data.pop_back(); }
-
 	private:
-		std::vector<T> _data;
-		std::vector<const_iterator> _free_indexes;
+		info _data[LIST_SIZE]{};
+		std::vector<size_type> _free_indexes;
 	};
 }
