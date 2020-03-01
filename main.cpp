@@ -1,69 +1,51 @@
 ﻿#include <iostream>
 
 #include "gc.h"
-
-template <typename T>
-class ref
-{
-public:
-	template <typename... Args>
-	ref(Args && ...args)
-	{
-		ptr = new T(std::forward<Args>(args)...);
-		info = gc::new_ref(ptr);
-	}
-
-	ref(ref &&other) noexcept
-	{
-		ptr = other.ptr;
-		info = other.info;
-
-		other.ptr = nullptr;
-		other.info = nullptr;
-	}
-
-	~ref() noexcept
-	{
-		if (info)
-			info->decrementRef();
-	}
-
-private:
-	T *ptr = nullptr;
-	gc::info *info = nullptr;
-};
+#include "ref.h"
 
 struct test_struct
 {
-	int i;
+	int *ptr;
 
-	test_struct(const int index) noexcept : i(index)
+	test_struct(const int index) noexcept
 	{
-		std::cout << "Constructed: " << index << '\n';
+		ptr = new int(index);
 	}
 
-	~test_struct() noexcept
+	~test_struct()
 	{
-		std::cout << "Destroyed: " << i << '\n';
+		delete ptr;
 	}
 };
 
-void run_test()
+int run_test()
 {
 	std::vector<ref<test_struct>> vec;
 
-	for (int i = 0; i < 1024; ++i)
+	ref<int> sum;
+	for (int i = 0; i < 4096; ++i)
 	{
 		ref<test_struct> a(i);
 		if (i & 1)
-			vec.push_back(std::move(a));
+			vec.push_back(a);
+
+		*sum += *(a->ptr);
 	}
+	return *sum;
 }
 
 int main()
 {
-	run_test();
+	std::vector<std::thread> threads;
+	for (int i = 0; i < 8; ++i)
+	{
+		threads.emplace_back(run_test);
+	}
+	
+	ref<int> a;
 
+	for (auto &t : threads)
+		t.join();
 	gc::close_gc();
 	return 0;
 }

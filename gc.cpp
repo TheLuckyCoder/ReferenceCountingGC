@@ -6,56 +6,45 @@
 
 namespace gc
 {
-	static std::mutex info_mutex;
-	static gc_list<info> info_list;
+	std::mutex internal::list_mutex{};
+	gc_list<info> internal::info_list{};
 	static std::atomic_bool gc_running{ true };
 	static std::thread gc_thread{
 		[]
 		{
 			while (gc_running)
 			{
-				std::this_thread::sleep_for(std::chrono::milliseconds(600));
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
 				run();
 			}
 		}
 	};
 
-	void run() noexcept(false)
+	void clean_list(gc_list<info> &list)
 	{
-		std::lock_guard lock{ info_mutex };
-
-		for (auto it = info_list.begin(); it < info_list.end(); ++it)
+		for (auto it = list.begin(); it < list.end(); ++it)
 		{
 			auto &info = *it;
-			if (info.isValid() && info.noReferences())
+			if (info.is_valid() && info.no_references())
 			{
-				if (info_list.erase(it))
+				if (list.erase(it))
 					break;
 			}
 		}
 
-		std::cout << "List Size: " << info_list.size() << '\n';
+		std::cout << "Unused List Size: " << list.capacity() - list.used_size() << '\n';
 	}
 
-	gc_list<info> &get_info_list() noexcept
+	void run() noexcept(false)
 	{
-		return info_list;
+		std::lock_guard lock{ internal::list_mutex };
+		clean_list(internal::info_list);
 	}
 
-	std::mutex &get_mutex() noexcept
-	{
-		return info_mutex;
-	}
-
-	/**
-	 * Stop the Garbage Collection from running
-	 *
-	 * This should only be called at the end of a program
-	 */
 	void close_gc()
 	{
 		gc_running = false;
 		gc_thread.join();
-		info_list.clear();
+		internal::info_list.clear();
 	}
 }

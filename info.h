@@ -27,10 +27,10 @@ namespace gc
 
 		info &operator=(info &&other) noexcept;
 
-		bool isValid() const noexcept;
-		void incrementRef() noexcept;
-		void decrementRef() noexcept;
-		bool noReferences() const noexcept;
+		bool is_valid() const noexcept;
+		void inc_references() noexcept;
+		void dec_references() noexcept;
+		bool no_references() const noexcept;
 
 	private:
 		void *ptr;

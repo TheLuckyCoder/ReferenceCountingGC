@@ -31,22 +31,22 @@ namespace gc
 		return *this;
 	}
 
-	bool info::isValid() const noexcept
+	bool info::is_valid() const noexcept
 	{
 		return ptr != nullptr;
 	}
 
-	void info::incrementRef() noexcept
+	void info::inc_references() noexcept
 	{
 		++ref_count;
 	}
 
-	void info::decrementRef() noexcept
+	void info::dec_references() noexcept
 	{
 		--ref_count;
 	}
 
-	bool info::noReferences() const noexcept
+	bool info::no_references() const noexcept
 	{
 		return ref_count == 0;
 	}

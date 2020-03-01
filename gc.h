@@ -6,7 +6,15 @@
 #include "info.h"
 
 namespace gc
-{	
+{
+	struct internal
+	{
+		static std::mutex list_mutex;
+		static gc_list<info> info_list;
+	
+		internal() = delete;
+	};
+
 	/**
 	 * Force run the GC
 	 */
@@ -17,12 +25,11 @@ namespace gc
 	 */
 	template <typename T>
 	info *new_ref(const T *ptr) noexcept;
-
-	gc_list<info> &get_info_list() noexcept;
-	std::mutex &get_mutex() noexcept;
 	
 	/**
 	 * Stops the Garbage Collector Thread and frees up all the allocated objects
+	 *
+	 * This should only be called at the end of a program
 	 */
 	void close_gc() noexcept(false);
 };
@@ -30,6 +37,6 @@ namespace gc
 template <typename T>
 gc::info *gc::new_ref(const T *ptr) noexcept
 {
-	std::lock_guard lock{ gc::get_mutex() };
-	return &get_info_list().add_element(ptr);
+	std::lock_guard lock{ internal::list_mutex };
+	return &internal::info_list.add_element(ptr);
 }

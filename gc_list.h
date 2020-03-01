@@ -67,8 +67,9 @@ namespace gc
 		// Capacity
 		bool empty() const noexcept { return _data.empty(); }
 		auto size() const noexcept { return _data.size(); }
+		auto capacity() const noexcept { return _data.capacity(); }
 		auto used_size() const noexcept { return _data.size() - _free_indexes.size(); }
-		auto capacity() noexcept { return _data.capacity(); }
+		auto free_space() const noexcept { return capacity() - used_size(); }
 
 		// Modifiers
 		void clear() noexcept
@@ -111,10 +112,10 @@ namespace gc
 			if (_free_indexes.empty())
 				return emplace_back(std::forward<Args>(args)...);
 
-			const auto emptyIterator = _free_indexes.back();
+			const auto emptyIndex = _free_indexes.back();
 			_free_indexes.pop_back();
 
-			return emplace(emptyIterator, std::forward<Args>(args)...);
+			return emplace(emptyIndex, std::forward<Args>(args)...);
 		}
 
 		void pop_back() noexcept { _data.pop_back(); }
