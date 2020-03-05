@@ -1,6 +1,7 @@
 #pragma once
 
-#include <mutex>
+#include <shared_mutex>
+#include <list>
 
 #include "gc_list.h"
 
@@ -8,8 +9,15 @@ namespace gc
 {
 	struct internal
 	{
-		static std::mutex list_mutex;
-		static gc_list info_list;
+		static std::list<gc_list> info_list;
+		static std::shared_mutex list_mutex;
+
+		/**
+		 * @returns an available gc_list for a new allocation
+		 * 
+		 * The returned list is locked
+		 */
+		static gc_list &get_available_list();
 	
 		internal() = delete;
 	};
@@ -30,12 +38,16 @@ namespace gc
 	 *
 	 * This should only be called at the end of a program
 	 */
-	void close_gc() noexcept(false);
+	void close() noexcept(false);
 };
 
 template <typename T>
 gc::info *gc::new_ref(const T *ptr) noexcept
 {
-	std::lock_guard lock{ internal::list_mutex };
-	return &internal::info_list.add_element(ptr);
+	auto &list = internal::get_available_list();
+	auto &info = list.add_element(ptr);
+
+	// get_available_list locks the list so we must unlock
+	list.get_lock().unlock();
+	return &info;
 }

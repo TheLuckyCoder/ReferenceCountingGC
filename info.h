@@ -7,20 +7,27 @@ namespace gc
 	class info
 	{
 		template <typename T>
-		struct Manager
+		struct manager
 		{
-			static void deleter(const void *pVoid)
+			static void deleter(const void *p_void)
 			{
-				auto ptr = static_cast<const T*>(pVoid);
+				auto ptr = static_cast<const T*>(p_void);
 				delete ptr;
 			}
+
+			manager() = delete;
+			manager(const manager &) = delete;
+			manager(manager &&) = delete;
+			~manager() = default;
+			manager &operator=(const manager &) = delete;
+			manager &operator=(manager &&) = delete;
 		};
 
 	public:
 		info() = default;
-		
+
 		template <typename T>
-		explicit info(T *t) : ptr((void*)(t)), deleter(&Manager<T>::deleter), ref_count(1)
+		explicit info(T *t) : ptr((void*)(t)), deleter(&manager<T>::deleter), ref_count(1)
 		{
 		}
 
@@ -28,7 +35,7 @@ namespace gc
 		void construct(T *t)
 		{
 			ptr = (void*)(t);
-			deleter = &Manager<T>::deleter;
+			deleter = &manager<T>::deleter;
 			ref_count = 1;
 		}
 

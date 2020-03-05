@@ -1,15 +1,18 @@
 #pragma once
 
+#include <mutex>
 #include <vector>
 
 #include "info.h"
+
+#ifndef GC_PAGE_SIZE
+#define GC_PAGE_SIZE 8192
+#endif
 
 namespace gc
 {
 	class gc_list
 	{
-		static constexpr std::size_t LIST_SIZE = 4096;
-
 	public:
 		using size_type = std::size_t;
 		using value_type = info;
@@ -22,9 +25,10 @@ namespace gc
 
 		gc_list()
 		{
-			_free_indexes.reserve(LIST_SIZE);
-			for (size_type i = 0; i < LIST_SIZE; ++i)
+			_free_indexes.reserve(GC_PAGE_SIZE);
+			for (size_type i = GC_PAGE_SIZE - 1; i > 0; --i)
 				_free_indexes.push_back(i);
+			_free_indexes.push_back(0);
 		}
 
 		gc_list(const gc_list &) noexcept = delete;
@@ -39,9 +43,9 @@ namespace gc
 		const_reference operator[](const size_type pos) const noexcept(false) { return _data[pos]; }
 
 		// Capacity
-		size_type capacity() const noexcept { return LIST_SIZE; }
-		size_type empty() const noexcept { return capacity() - _free_indexes.size(); }
-		size_type full() const noexcept { return _free_indexes.empty(); }
+		size_type capacity() const noexcept { return GC_PAGE_SIZE; }
+		bool empty() const noexcept { return capacity() == _free_indexes.size(); }
+		bool full() const noexcept { return _free_indexes.empty(); }
 		size_type used_size() const noexcept { return capacity() - _free_indexes.size(); }
 		size_type unused_space() const noexcept { return _free_indexes.size(); }
 
@@ -56,17 +60,14 @@ namespace gc
 		void clear() noexcept
 		{
 			for (info &item : _data)
-			{
-				if (item.is_valid())
-					item.destroy();
-			}
+				item.destroy();
 			_free_indexes.clear();
 		}
 
 		void erase(const iterator it)
 		{
 			(*it).destroy();
-			_free_indexes.push_back(begin() - it);
+			_free_indexes.push_back(it - begin());
 		}
 
 		void erase(const size_type index)
@@ -92,8 +93,14 @@ namespace gc
 			return emplace(emptyIndex, arg);
 		}
 
+		// Synchronization
+		std::mutex &get_lock() const noexcept { return lock; }
+
 	private:
-		info _data[LIST_SIZE]{};
+		mutable std::mutex lock;
+		info _data[GC_PAGE_SIZE]{};
 		std::vector<size_type> _free_indexes;
 	};
 }
+
+#undef GC_PAGE_SIZE
