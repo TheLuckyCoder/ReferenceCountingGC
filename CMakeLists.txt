@@ -3,4 +3,4 @@ project ("GarbageCollector")
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable (GarbageCollector main.cpp info.cpp info.h gc.cpp gc.h ref.h)
+add_executable (GarbageCollector main.cpp info.cpp info.h gc.cpp gc.h ref.h page.h)

@@ -9,10 +9,16 @@ namespace gc
 		template <typename T>
 		struct manager
 		{
-			static void deleter(const void *p_void)
+			static void object_deleter(const void *p_void)
 			{
 				auto ptr = static_cast<const T*>(p_void);
 				delete ptr;
+			}
+
+			static void array_deleter(const void *p_void)
+			{
+				auto ptr = static_cast<const T*>(p_void);
+				delete[] ptr;
 			}
 
 			manager() = delete;
@@ -26,25 +32,25 @@ namespace gc
 	public:
 		info() = default;
 
-		template <typename T>
-		explicit info(T *t) : ptr((void*)(t)), deleter(&manager<T>::deleter), ref_count(1)
-		{
-		}
+		info(const info &) = delete;
+		info(info &&other) noexcept;
+		~info();
 
-		template <typename T>
+		info &operator=(const info &) = delete;
+		info &operator=(info &&other) noexcept;
+
+		template <typename T, bool Array = false>
 		void construct(T *t)
 		{
 			ptr = (void*)(t);
-			deleter = &manager<T>::deleter;
+			if constexpr (Array)
+				deleter = &manager<T>::array_deleter;
+			else
+				deleter = &manager<T>::object_deleter;
 			ref_count = 1;
 		}
 
 		void destroy();
-
-		info(info &&other) noexcept;
-		~info();
-
-		info &operator=(info &&other) noexcept;
 
 		bool is_valid() const noexcept;
 		void inc_references() noexcept;

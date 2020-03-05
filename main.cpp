@@ -1,5 +1,5 @@
-﻿#include <cassert>
-#include <iostream>
+﻿#include <iostream>
+#include <vector>
 
 #include "gc.h"
 #include "ref.h"
@@ -25,7 +25,7 @@ struct test_struct
 
 int run_test()
 {
-	const auto test_size =  8192 * 8;
+	constexpr auto test_size =  8192 * 8;
 	std::vector<ref<test_struct>> vec;
 	vec.reserve(test_size / 2);
 	
@@ -49,7 +49,7 @@ int main()
 {
 	{
 		sync.lock();
-		constexpr auto thread_count = 64;
+		constexpr auto thread_count = 128;
 		std::vector<std::thread> threads;
 		threads.reserve(thread_count);
 		
@@ -63,6 +63,7 @@ int main()
 			t.join();
 	}
 
-	gc::close();
+	std::this_thread::sleep_for(3s);
+	gc::shutdown();
 	return 0;
 }
