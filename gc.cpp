@@ -8,7 +8,7 @@ namespace gc
 {
 	std::list<gc::page> internal::pages_list{};
 	std::shared_mutex internal::list_mutex{};
-	
+
 	static std::atomic_bool gc_paused{};
 	static std::atomic_bool gc_running{ true };
 	static std::condition_variable gc_cv{};
@@ -22,10 +22,10 @@ namespace gc
 			{
 				std::unique_lock lock{ gc_mutex };
 				gc_cv.wait_for(lock, 10ms, [] { return !gc_paused; });
-				
+
 				if (!gc_running)
 					break;
-				
+
 				run();
 			}
 		}
@@ -40,7 +40,7 @@ namespace gc
 				page.get_mutex().lock();
 				if (!page.full())
 					return page;
-				
+
 				page.get_mutex().unlock();
 			}
 		}
@@ -67,12 +67,14 @@ namespace gc
 
 	void run()
 	{
+		auto &pages_list = internal::pages_list;
+
 		long long empty_pages_count{};
 
 		{
 			std::shared_lock shared_lock{ internal::list_mutex };
 
-			for (auto &page : internal::pages_list)
+			for (auto &page : pages_list)
 			{
 				std::lock_guard lock{ page.get_mutex() };
 
@@ -83,14 +85,18 @@ namespace gc
 			}
 		}
 
-		if (empty_pages_count > 3)
 		{
 			std::unique_lock unique_lock{ internal::list_mutex };
-			
-			internal::pages_list.remove_if([&empty_pages_count](const page &page)
+
+			if (empty_pages_count > 3)
 			{
-				return page.empty() && empty_pages_count-- > 3;
-			});
+				pages_list.remove_if([](const page &page)
+				{
+					return page.empty();
+				});
+			}
+			
+			pages_list.sort();
 		}
 	}
 

@@ -44,8 +44,8 @@ namespace gc
 	/**
 	 * @returns a pointer to a newly initialized object
 	 */
-	template <typename T>
-	info *new_info(const T *ptr);
+	template <typename T, bool Array>
+	info *new_info(T *ptr);
 
 	/**
 	 * Stops the Garbage Collector Thread and frees up all the allocated objects
@@ -55,11 +55,11 @@ namespace gc
 	void shutdown();
 };
 
-template <typename T>
-gc::info *gc::new_info(const T *ptr)
+template <typename T, bool Array>
+gc::info *gc::new_info(T *ptr)
 {
 	auto &page = internal::get_available_page();
-	auto &info = page.add_element(ptr);
+	auto &info = page.add_element<T, Array>(ptr);
 
 	// get_available_page locks the list so we must unlock
 	page.get_mutex().unlock();

@@ -39,7 +39,7 @@ namespace gc
 		info &operator=(const info &) = delete;
 		info &operator=(info &&other) noexcept;
 
-		template <typename T, bool Array = false>
+		template <typename T, bool Array>
 		void construct(T *t)
 		{
 			ptr = (void*)(t);

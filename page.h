@@ -32,14 +32,14 @@ namespace gc
 
 		page(const page &) noexcept = delete;
 		page(page &&) noexcept = delete;
-		~page() = default;
+		~page()
+		{
+			for (info &item : _data)
+				item.destroy();
+		}
 
 		page &operator=(const page &) noexcept = delete;
 		page &operator=(page &&) noexcept = delete;
-
-		// Element Access
-		reference operator[](const size_type pos) noexcept(false) { return _data[pos]; }
-		const_reference operator[](const size_type pos) const noexcept(false) { return _data[pos]; }
 
 		// Capacity
 		static constexpr size_type capacity() noexcept { return GC_PAGE_SIZE; }
@@ -47,6 +47,12 @@ namespace gc
 		size_type used_size() const noexcept { return capacity() - unused_space(); }
 		bool empty() const noexcept { return capacity() == unused_space(); }
 		bool full() const noexcept { return unused_space() == 0; }
+
+		// Element Access
+		reference operator[](const size_type pos) noexcept { return _data[pos]; }
+		const_reference operator[](const size_type pos) const noexcept { return _data[pos]; }
+
+		bool operator<(const page &other) const noexcept { return used_size() < other.used_size(); }
 
 		// Iterators
 		iterator begin() noexcept { return _data; }
@@ -76,22 +82,16 @@ namespace gc
 			assert(_freed_data_size <= capacity());
 		}
 
-		template <class T>
-		reference emplace(const size_type index, const T *arg)
-		{
-			assert(index < capacity());
-			info &info = _data[index];
-			info.construct(arg);
-			return info;
-		}
-
-		template <class T>
-		reference add_element(const T *arg)
+		template <class T, bool Array>
+		reference add_element(T *arg)
 		{
 			assert(_freed_data_size > 0);
-			const size_type emptyIndex = _freed_data[--_freed_data_size];
+			const size_type index = _freed_data[--_freed_data_size];
 
-			return emplace(emptyIndex, arg);
+			assert(index < capacity());
+			info &info = _data[index];
+			info.construct<T, Array>(arg);
+			return info;
 		}
 
 		// Synchronization

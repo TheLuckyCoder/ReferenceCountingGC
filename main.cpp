@@ -1,7 +1,6 @@
 ﻿#include <iostream>
 #include <vector>
 
-#include "gc.h"
 #include "ref.h"
 
 static std::mutex sync{};
@@ -25,7 +24,7 @@ struct test_struct
 
 int run_test()
 {
-	constexpr auto test_size =  8192 * 8;
+	constexpr auto test_size = 65536;
 	std::vector<ref<test_struct>> vec;
 	vec.reserve(test_size / 2);
 	
@@ -63,7 +62,7 @@ int main()
 			t.join();
 	}
 
-	std::this_thread::sleep_for(3s);
 	gc::shutdown();
+	std::this_thread::sleep_for(3s);
 	return 0;
 }
