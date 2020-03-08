@@ -62,7 +62,7 @@ int main()
 			t.join();
 	}
 
-	gc::shutdown();
 	std::this_thread::sleep_for(3s);
+	gc::shutdown();
 	return 0;
 }

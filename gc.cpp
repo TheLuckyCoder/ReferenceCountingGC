@@ -35,6 +35,7 @@ namespace gc
 	{
 		{
 			std::shared_lock shared_lock{ list_mutex };
+			std::size_t i{};
 			for (auto &page : pages_list)
 			{
 				page.get_mutex().lock();
@@ -42,15 +43,22 @@ namespace gc
 					return page;
 
 				page.get_mutex().unlock();
+				if (i > 10)
+				{
+					// Knowing the pages should be sorted
+					// we stop searching for an empty page
+					// since it's very unlikely to find one
+					break;
+				}
+				++i;
 			}
 		}
 
-		// All lists are full
 		gc_cv.notify_all(); // Notify the GC that it should run
 
 		std::unique_lock lock{ list_mutex };
 		// In the meantime, create a new gc::page and use it to make the allocation
-		auto &new_page = pages_list.emplace_back();
+		auto &new_page = pages_list.emplace_front();
 		new_page.get_mutex().lock();
 		return new_page;
 	}
@@ -69,8 +77,6 @@ namespace gc
 	{
 		auto &pages_list = internal::pages_list;
 
-		long long empty_pages_count{};
-
 		{
 			std::shared_lock shared_lock{ internal::list_mutex };
 
@@ -78,25 +84,31 @@ namespace gc
 			{
 				std::lock_guard lock{ page.get_mutex() };
 
-				if (page.full() || page.used_size() > (gc::page::capacity() / 4) * 3)
+				if (page.full() || page.used_size() > gc::page::capacity() / 5)
 					clean_list(page);
-				else if (page.empty())
-					++empty_pages_count;
 			}
 		}
 
 		{
 			std::unique_lock unique_lock{ internal::list_mutex };
 
-			if (empty_pages_count > 3)
-			{
-				pages_list.remove_if([](const page &page)
-				{
-					return page.empty();
-				});
-			}
-			
 			pages_list.sort();
+
+			auto it = pages_list.begin();
+			const auto end = pages_list.end();
+
+			while (it != end)
+			{
+				const auto &page = *it;
+				if (page.empty())
+					it = pages_list.erase(it);
+				else
+				{
+					// We already sorted the list so if
+					// this one is not empty, the next won't be either
+					break;
+				}
+			}
 		}
 	}
 
