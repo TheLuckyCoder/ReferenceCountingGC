@@ -161,9 +161,6 @@ namespace gc
 		T &operator*() noexcept { return *_ptr; }
 		const T &operator*() const noexcept { return *_ptr; }
 
-		T *operator->() noexcept { return _ptr; }
-		const T *operator->() const noexcept { return _ptr; }
-
 		T &operator[](const std::size_t i) noexcept { return _ptr[i]; }
 		const T &operator[](const std::size_t i) const noexcept { return _ptr[i]; }
 

@@ -4,7 +4,7 @@
 
 namespace gc
 {
-	void info::destroy()
+	void info::destroy() noexcept
 	{
 		if (ptr && deleter)
 			std::invoke(deleter, ptr);
@@ -19,7 +19,7 @@ namespace gc
 		other.deleter = nullptr;
 	}
 
-	info::~info()
+	info::~info() noexcept
 	{
 		destroy();
 	}

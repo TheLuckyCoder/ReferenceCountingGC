@@ -14,7 +14,7 @@ namespace gc
 	class page
 	{
 	public:
-		using size_type = std::size_t;
+		using size_type = std::uint32_t;
 		using value_type = info;
 		using pointer = value_type*;
 		using const_pointer = const value_type*;
@@ -25,7 +25,7 @@ namespace gc
 
 		page()
 		{
-			for (size_type i = 0; i < capacity(); ++i)
+			for (size_type i{}; i < capacity(); ++i)
 				_freed_data[i] = i;
 			_freed_data_size = capacity();
 		}

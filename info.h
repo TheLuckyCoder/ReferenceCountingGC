@@ -24,7 +24,7 @@ namespace gc
 			manager() = delete;
 			manager(const manager &) = delete;
 			manager(manager &&) = delete;
-			~manager() = default;
+			~manager() = delete;
 			manager &operator=(const manager &) = delete;
 			manager &operator=(manager &&) = delete;
 		};
@@ -34,13 +34,13 @@ namespace gc
 
 		info(const info &) = delete;
 		info(info &&other) noexcept;
-		~info();
+		~info() noexcept;
 
 		info &operator=(const info &) = delete;
 		info &operator=(info &&other) noexcept;
 
 		template <typename T, bool Array>
-		void construct(T *t)
+		void construct(T *t) noexcept
 		{
 			ptr = (void*)(t);
 			if constexpr (Array)
@@ -50,7 +50,7 @@ namespace gc
 			ref_count = 1;
 		}
 
-		void destroy();
+		void destroy() noexcept;
 
 		bool is_valid() const noexcept;
 		void inc_references() noexcept;
