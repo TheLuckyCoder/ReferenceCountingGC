@@ -36,17 +36,19 @@ namespace gc
 		{
 			std::shared_lock shared_lock{ list_mutex };
 			std::size_t i{};
+
 			for (auto &page : pages_list)
 			{
-				page.get_mutex().lock();
+                if (!page.get_mutex().try_lock())
+                    continue;
 				if (!page.full())
 					return page;
-
 				page.get_mutex().unlock();
+
 				if (i > 10)
 				{
 					// Knowing the pages should be sorted
-					// we stop searching for an empty page
+					// we stop searching for an available page
 					// since it's very unlikely to find one
 					break;
 				}

@@ -1,22 +1,21 @@
 ﻿#include <iostream>
+#include <thread>
 #include <vector>
 
 #include "ref.h"
 
 static std::mutex sync{};
 
-using namespace std::chrono_literals;
-
 struct test_struct
 {
 	int *ptr;
 
-	test_struct(const int index) noexcept
+	explicit test_struct(const int index) noexcept
 	{
 		ptr = new int(index);
 	}
 
-	~test_struct()
+	~test_struct() noexcept
 	{
 		delete ptr;
 	}
@@ -46,6 +45,9 @@ int run_test()
 
 int main()
 {
+    using namespace std::chrono;
+    using namespace std::chrono_literals;
+
 	{
 		sync.lock();
 		constexpr auto thread_count = 128;
@@ -55,14 +57,19 @@ int main()
 		for (int i = 0; i < thread_count; ++i)
 			threads.emplace_back(run_test);
 		
-		std::this_thread::sleep_for(3s);
+		std::this_thread::sleep_for(1s);
+
+		const auto start_time = steady_clock::now();
 		sync.unlock();
-		
+
 		for (auto &t : threads)
 			t.join();
+
+        auto time_needed = duration_cast<milliseconds>(steady_clock::now() - start_time).count();
+        std::cout << "Time Needed: " << time_needed << std::endl;
 	}
 
-	std::this_thread::sleep_for(3s);
+	std::this_thread::sleep_for(1s);
 	gc::shutdown();
 	return 0;
 }
