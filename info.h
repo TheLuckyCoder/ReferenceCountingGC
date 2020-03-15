@@ -33,11 +33,11 @@ namespace gc
 		info() = default;
 
 		info(const info &) = delete;
-		info(info &&other) noexcept;
+		info(info &&other) = delete;
 		~info() noexcept;
 
 		info &operator=(const info &) = delete;
-		info &operator=(info &&other) noexcept;
+		info &operator=(info &&other) = delete;
 
 		template <typename T, bool Array>
 		void construct(T *t) noexcept

@@ -1,4 +1,4 @@
-﻿#include <iostream>
+#include <iostream>
 #include <thread>
 #include <vector>
 
@@ -65,7 +65,7 @@ int main()
 		for (auto &t : threads)
 			t.join();
 
-        auto time_needed = duration_cast<milliseconds>(steady_clock::now() - start_time).count();
+        const auto time_needed = duration_cast<milliseconds>(steady_clock::now() - start_time).count();
         std::cout << "Time Needed: " << time_needed << std::endl;
 	}
 

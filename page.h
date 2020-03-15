@@ -52,8 +52,6 @@ namespace gc
 		reference operator[](const size_type pos) noexcept { return _data[pos]; }
 		const_reference operator[](const size_type pos) const noexcept { return _data[pos]; }
 
-		bool operator<(const page &other) const noexcept { return used_size() < other.used_size(); }
-
 		// Iterators
 		iterator begin() noexcept { return _data; }
 		const_iterator begin() const noexcept { return _data; }

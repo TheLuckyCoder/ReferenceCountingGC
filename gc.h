@@ -1,17 +1,11 @@
 #pragma once
 
-#include <shared_mutex>
-#include <list>
-
 #include "page.h"
 
 namespace gc
 {
 	struct internal
 	{
-		static std::list<gc::page> pages_list;
-		static std::shared_mutex list_mutex;
-
 		/**
 		 * @returns a non-full gc::page for a new allocation
 		 * 
@@ -61,7 +55,8 @@ gc::info *gc::new_info(T *ptr)
 	auto &page = internal::get_available_page();
 	auto &info = page.add_element<T, Array>(ptr);
 
-	// get_available_page locks the list so we must unlock
+	// get_available_page locks the list so we must unlock it,
+	// after we add the element
 	page.get_mutex().unlock();
 	return &info;
 }

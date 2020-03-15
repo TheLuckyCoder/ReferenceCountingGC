@@ -1,22 +1,13 @@
 #include "info.h"
 
-#include <functional>
-
 namespace gc
 {
 	void info::destroy() noexcept
 	{
 		if (ptr && deleter)
-			std::invoke(deleter, ptr);
+			deleter(ptr);
 		ptr = nullptr;
 		deleter = nullptr;
-	}
-
-	info::info(info &&other) noexcept
-		: ptr(other.ptr), deleter(other.deleter), ref_count(static_cast<std::size_t>(other.ref_count))
-	{
-		other.ptr = nullptr;
-		other.deleter = nullptr;
 	}
 
 	info::~info() noexcept
@@ -24,21 +15,9 @@ namespace gc
 		destroy();
 	}
 
-	info &info::operator=(info &&other) noexcept
-	{
-		ptr = other.ptr;
-		deleter = other.deleter;
-		ref_count = static_cast<std::size_t>(other.ref_count);
-
-		other.ptr = nullptr;
-		other.deleter = nullptr;
-
-		return *this;
-	}
-
 	bool info::is_valid() const noexcept
 	{
-		return ptr != nullptr;
+		return ptr;
 	}
 
 	void info::inc_references() noexcept
