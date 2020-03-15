@@ -30,11 +30,15 @@ namespace gc
 		};
 
 	public:
-		info() = default;
+		info() noexcept = default;
 
 		info(const info &) = delete;
 		info(info &&other) = delete;
-		~info() noexcept;
+
+		~info() noexcept
+		{
+			destroy();
+		}
 
 		info &operator=(const info &) = delete;
 		info &operator=(info &&other) = delete;
@@ -50,12 +54,33 @@ namespace gc
 			ref_count = 1;
 		}
 
-		void destroy() noexcept;
+		void destroy() noexcept
+		{
+			if (ptr && deleter)
+				deleter(ptr);
+			ptr = nullptr;
+			deleter = nullptr;
+		}
 
-		bool is_valid() const noexcept;
-		void inc_references() noexcept;
-		void dec_references() noexcept;
-		bool no_references() const noexcept;
+		bool is_valid() const noexcept
+		{
+			return ptr;
+		}
+
+		bool has_references() const noexcept
+		{
+			return ref_count != 0;
+		}
+
+		void inc_references() noexcept
+		{
+			++ref_count;
+		}
+
+		void dec_references() noexcept
+		{
+			--ref_count;
+		}
 
 	private:
 		void *ptr = nullptr;

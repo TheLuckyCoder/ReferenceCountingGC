@@ -80,7 +80,7 @@ namespace gc
 		for (auto it = page.begin(); it < page.end(); ++it)
 		{
 			const auto &info = *it;
-			if (info.is_valid() && info.no_references())
+			if (info.is_valid() && !info.has_references())
 				page.erase(it);
 		}
 	}
