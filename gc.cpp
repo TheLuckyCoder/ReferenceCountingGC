@@ -108,7 +108,7 @@ namespace gc
 		});
 
 		auto it = pages_list.begin();
-		const auto end = pages_list.end();
+		auto end = pages_list.end();
 
 		while (it != end)
 		{
@@ -117,6 +117,7 @@ namespace gc
 			{
 				delete *it;
 				it = pages_list.erase(it);
+				end = pages_list.end();
 			} else
 			{
 				// We already sorted the vector so if this page

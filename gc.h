@@ -39,7 +39,7 @@ namespace gc
 	 * @returns a pointer to a newly initialized object
 	 */
 	template <typename T, bool Array>
-	info *new_info(T *ptr);
+	info *new_info();
 
 	/**
 	 * Stops the Garbage Collector Thread and frees up all the allocated objects
@@ -50,10 +50,10 @@ namespace gc
 };
 
 template <typename T, bool Array>
-gc::info *gc::new_info(T *ptr)
+gc::info *gc::new_info()
 {
 	auto &page = internal::get_available_page();
-	auto &info = page.add_element<T, Array>(ptr);
+	auto &info = page.add_element<T, Array>();
 
 	// get_available_page locks the list so we must unlock it,
 	// after we add the element

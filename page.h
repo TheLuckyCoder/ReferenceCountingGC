@@ -81,14 +81,14 @@ namespace gc
 		}
 
 		template <class T, bool Array>
-		reference add_element(T *arg)
+		reference add_element()
 		{
 			assert(_freed_data_size > 0);
 			const size_type index = _freed_data[--_freed_data_size];
 
 			assert(index < capacity());
 			info &info = _data[index];
-			info.construct<T, Array>(arg);
+			info.construct<T, Array>();
 			return info;
 		}
 

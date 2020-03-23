@@ -11,14 +11,16 @@ namespace gc
 	{
 	public:
 		explicit ref(T &&arg)
-			: _ptr(new T(std::forward<T>(arg))), _info(gc::new_info<T, false>(_ptr))
+			: _info(gc::new_info<T, false>()), _ptr(_info->get<T, false>())
 		{
+			new(_ptr) T(std::forward<T>(arg));
 		}
 
 		template <typename... Args>
 		explicit ref(Args && ...args)
-			: _ptr(new T(std::forward<Args>(args)...)), _info(gc::new_info<T, false>(_ptr))
+			: _info(gc::new_info<T, false>()), _ptr(_info->get<T, false>())
 		{
+			new(_ptr) T(std::forward<Args>(args)...);
 		}
 
 		ref(const ref &other) noexcept
@@ -76,8 +78,8 @@ namespace gc
 		const T *operator->() const noexcept { return _ptr; }
 
 	private:
-		T *_ptr;
 		gc::info *_info;
+		T *_ptr;
 	};
 
 	template <class T>
@@ -85,12 +87,12 @@ namespace gc
 	{
 	public:
 		explicit ref_array(const std::size_t size)
-			: _ptr(new T[size]{}), _info(gc::new_info<T, true>(_ptr)), _size(size)
+			: _info(gc::new_info<T, true>(_ptr)), _ptr(_info->get<T, true>()), _size(size)
 		{
 		}
 
 		ref_array(const std::initializer_list<T> init)
-			: _ptr(new T[init.size()]), _info(gc::new_info<T, true>(_ptr)), _size(init.size())
+			: _info(gc::new_info<T, true>(_ptr)), _ptr(_info->get<T, true>()), _size(init.size())
 		{
 			std::copy(init.begin(), init.end(), _ptr);
 		}
@@ -165,8 +167,8 @@ namespace gc
 		const T &operator[](const std::size_t i) const noexcept { return _ptr[i]; }
 
 	private:
-		T *_ptr;
 		gc::info *_info;
+		T *_ptr;
 		std::size_t _size;
 	};
 }
