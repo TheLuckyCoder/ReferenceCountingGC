@@ -3,7 +3,7 @@
 #include <cassert>
 #include <mutex>
 
-#include "info.h"
+#include "pointer.h"
 
 #ifndef GC_PAGE_SIZE
 #define GC_PAGE_SIZE 8192
@@ -15,13 +15,11 @@ namespace gc
 	{
 	public:
 		using size_type = std::uint32_t;
-		using value_type = info;
-		using pointer = value_type*;
-		using const_pointer = const value_type*;
+		using value_type = gc::pointer;
 		using reference = value_type&;
 		using const_reference = const value_type&;
-		using iterator = pointer;
-		using const_iterator = const_pointer;
+		using iterator = value_type*;
+		using const_iterator = const value_type*;
 
 		page()
 		{
@@ -34,7 +32,7 @@ namespace gc
 		page(page &&) noexcept = delete;
 		~page()
 		{
-			for (info &item : _data)
+			for (auto &item : _data)
 				item.destroy();
 		}
 
@@ -62,7 +60,7 @@ namespace gc
 		// Modifiers
 		void clear() noexcept
 		{
-			for (info &item : _data)
+			for (pointer &item : _data)
 				item.destroy();
 			_freed_data_size = 0;
 		}
@@ -80,16 +78,13 @@ namespace gc
 			assert(_freed_data_size <= capacity());
 		}
 
-		template <class T, bool Array>
-		reference add_element()
+		reference get_free_pointer()
 		{
 			assert(_freed_data_size > 0);
 			const size_type index = _freed_data[--_freed_data_size];
 
 			assert(index < capacity());
-			info &info = _data[index];
-			info.construct<T, Array>();
-			return info;
+			return _data[index];
 		}
 
 		// Synchronization
@@ -97,7 +92,7 @@ namespace gc
 
 	private:
 		mutable std::mutex lock;
-		info _data[GC_PAGE_SIZE]{};
+		pointer _data[GC_PAGE_SIZE]{};
 		size_type _freed_data[GC_PAGE_SIZE]{};
 		size_type _freed_data_size{};
 	};

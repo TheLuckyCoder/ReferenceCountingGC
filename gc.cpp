@@ -13,29 +13,17 @@ namespace gc
 	static std::shared_mutex pages_list_mutex{};
 
 	static std::atomic_bool gc_paused{};
-	static std::atomic_bool gc_running{ true };
+	static std::atomic_bool gc_running{};
 	static std::condition_variable gc_cv{};
 	static std::mutex gc_mutex{};
-	static std::thread gc_thread{
-		[]
-		{
-			pages_list.reserve(1024);
-			using namespace std::chrono_literals;
+	static std::thread gc_thread{};
 
-			while (gc_running)
-			{
-				std::unique_lock lock{ gc_mutex };
-				gc_cv.wait_for(lock, 20ms, [] { return !gc_paused; });
-
-				if (!gc_running)
-					break;
-
-				run();
-			}
-		}
-	};
-
-	gc::page &internal::get_available_page()
+	/**
+	 * @returns a non-full gc::page for a new allocation
+	 * 
+	 * The returned gc::page is locked
+	 */
+	static gc::page &get_available_page()
 	{
 		{
 			std::size_t i{};
@@ -75,27 +63,27 @@ namespace gc
 		return *new_page;
 	}
 
-	void clean_list(gc::page &page)
+	static void clean_list(gc::page &page)
 	{
 		for (auto it = page.begin(); it < page.end(); ++it)
 		{
-			const auto &info = *it;
-			if (info.is_valid() && !info.has_references())
+			const auto &pointer = *it;
+			if (pointer.is_valid() && !pointer.has_references())
 				page.erase(it);
 		}
 	}
 
-	void run()
+	static void run(const bool forced)
 	{
 		{
 			std::shared_lock shared_lock{ pages_list_mutex };
 
-			for (auto &page_ptr : pages_list)
+			for (auto *page_ptr : pages_list)
 			{
 				auto &page = *page_ptr;
 				std::lock_guard lock{ page.get_mutex() };
 
-				if (page.full() || page.used_size() > gc::page::capacity() / 10)
+				if ((forced && !page.empty()) || page.full() || page.used_size() > gc::page::capacity() / 10)
 					clean_list(page);
 			}
 		}
@@ -127,6 +115,34 @@ namespace gc
 		}
 	}
 
+	void start()
+	{
+		using namespace std::chrono_literals;
+		
+		gc_running = true;
+		pages_list.reserve(1024);
+
+		gc_thread = std::thread([]()
+		{
+			while (gc_running)
+			{
+				std::unique_lock lock{ gc_mutex };
+				gc_cv.wait_for(lock, 20ms, [] { return !gc_paused; });
+
+				if (!gc_running)
+					break;
+
+				run(false);
+			}
+		});
+	}
+
+	void force_run()
+	{
+		run(true);
+	}
+
+
 	bool is_paused() noexcept
 	{
 		return gc_paused;
@@ -142,9 +158,22 @@ namespace gc
 		gc_paused = false;
 	}
 
+	pointer &new_pointer()
+	{
+		auto &page = get_available_page();
+		auto &pointer = page.get_free_pointer();
+
+		pointer.set_references(1u);
+		
+		// get_available_page locks the page so we must unlock it,
+		// after we init the pointer
+		page.get_mutex().unlock();
+		return pointer;
+	}
+
 	void shutdown()
 	{
-		// Unpause and stop the GC so it may quit the loop
+		// Resume and stop the GC so it may quit the loop
 		gc_paused = false;
 		gc_running = false;
 		gc_cv.notify_all();

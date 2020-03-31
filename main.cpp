@@ -4,7 +4,7 @@
 
 #include "ref.h"
 
-static std::atomic_bool wait{ true };
+static std::atomic_bool wait_atomic{ true };
 
 struct test_struct
 {
@@ -19,6 +19,11 @@ struct test_struct
 	{
 		delete ptr;
 	}
+
+	int get() const noexcept
+	{
+		return *ptr;
+	}
 };
 
 int run_test()
@@ -27,16 +32,18 @@ int run_test()
 	std::vector<ref<test_struct>> vec;
 	vec.reserve(test_size / 2);
 
-	while (wait);
+	while (wait_atomic)
+	{
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
 	ref sum(0);
 
 	for (int i = 0; i < test_size; ++i)
 	{
 		ref<test_struct> a(i);
+		*sum += a->get();
 		if (i & 1)
-			vec.push_back(a);
-
-		*sum += *a->ptr;
+			vec.push_back(std::move(a));
 	}
 
 	return *sum;
@@ -55,10 +62,11 @@ int main()
 		for (int i = 0; i < thread_count; ++i)
 			threads.emplace_back(run_test);
 
+		gc::start();
 		std::this_thread::sleep_for(3s);
 
 		const auto start_time = steady_clock::now();
-		wait = false;
+		wait_atomic = false;
 
 		for (auto &t : threads)
 			t.join();
