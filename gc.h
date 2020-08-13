@@ -1,6 +1,6 @@
 #pragma once
 
-#include "page.h"
+#include "pointer.h"
 
 namespace gc
 {
@@ -25,11 +25,7 @@ namespace gc
 	 */
 	void resume() noexcept;
 
-	/**
-	 * @returns a garbage collector managed pointer
-	 * In order to use this pointer pointer::init has to be called
-	 */
-	pointer &new_pointer();
+	void delegate_destruction(pointer &&pointer);
 
 	/**
 	 * Stops the Garbage Collector Thread and frees up all the allocated objects

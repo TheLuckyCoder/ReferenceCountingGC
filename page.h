@@ -1,6 +1,9 @@
 #pragma once
 
+#include <array>
 #include <cassert>
+#include <vector>
+#include <memory>
 #include <mutex>
 
 #include "pointer.h"
@@ -22,79 +25,64 @@ namespace gc
 		using const_iterator = const value_type*;
 
 		page()
-		{
-			for (size_type i{}; i < capacity(); ++i)
-				_freed_data[i] = i;
-			_freed_data_size = capacity();
-		}
-
+        {
+			emplace_front();
+        }
 		page(const page &) noexcept = delete;
 		page(page &&) noexcept = delete;
 		~page()
-		{
-			for (auto &item : _data)
-				item.destroy();
-		}
+        {
+			std::lock_guard lock{_mutex };
+			if (!_data.empty())
+				_data.clear();
+        }
 
 		page &operator=(const page &) noexcept = delete;
 		page &operator=(page &&) noexcept = delete;
 
-		// Capacity
-		static constexpr size_type capacity() noexcept { return GC_PAGE_SIZE; }
-		size_type unused_space() const noexcept { return _freed_data_size; }
-		size_type used_size() const noexcept { return capacity() - unused_space(); }
-		bool empty() const noexcept { return capacity() == unused_space(); }
-		bool full() const noexcept { return unused_space() == 0; }
+	private:
+		static constexpr size_type CAPACITY = GC_PAGE_SIZE;
 
-		// Element Access
-		reference operator[](const size_type pos) noexcept { return _data[pos]; }
-		const_reference operator[](const size_type pos) const noexcept { return _data[pos]; }
-
-		// Iterators
-		iterator begin() noexcept { return _data; }
-		const_iterator begin() const noexcept { return _data; }
-
-		iterator end() noexcept { return _data + capacity(); }
-		const_iterator end() const noexcept { return _data + capacity(); }
-
-		// Modifiers
-		void clear() noexcept
+		void emplace_front()
 		{
-			for (pointer &item : _data)
-				item.destroy();
-			_freed_data_size = 0;
+			_data.emplace(_data.begin(), std::make_unique<page_array>());
 		}
 
-		void erase(const iterator it)
-		{
-			erase(static_cast<size_type>(it - begin()));
-		}
+	public:
+		void add(gc::pointer &&pointer)
+        {
+            std::lock_guard lock{_mutex };
+			if (_last_empty_index == CAPACITY)
+			{
+				emplace_front();
+				_last_empty_index = 0;
+			}
 
-		void erase(const size_type index)
-		{
-			assert(index < capacity());
-			_data[index].destroy();
-			_freed_data[_freed_data_size++] = index;
-			assert(_freed_data_size <= capacity());
-		}
+            auto &arr = _data.front();
+            arr->at(_last_empty_index++) = std::move(pointer);
+        }
 
-		reference get_free_pointer()
-		{
-			assert(_freed_data_size > 0);
-			const size_type index = _freed_data[--_freed_data_size];
+		void clear()
+        {
+		    while (true)
+            {
+		        std::lock_guard lock{_mutex };
+                const auto begin = _data.begin();
+                const auto end = --_data.end();
 
-			assert(index < capacity());
-			return _data[index];
-		}
+                if (begin == end)
+                    break;
 
-		// Synchronization
-		std::mutex &get_mutex() const noexcept { return lock; }
+                _data.erase(end);
+            }
+        }
 
 	private:
-		mutable std::mutex lock;
-		pointer _data[GC_PAGE_SIZE]{};
-		size_type _freed_data[GC_PAGE_SIZE]{};
-		size_type _freed_data_size{};
+		using page_array = std::array<pointer, CAPACITY>;
+
+	    mutable std::mutex _mutex{};
+		std::vector<std::unique_ptr<page_array>> _data{};
+		size_type _last_empty_index{};
 	};
 }
 

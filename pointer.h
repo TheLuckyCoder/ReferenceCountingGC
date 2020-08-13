@@ -6,28 +6,30 @@ namespace gc
 {
 	class pointer
 	{
+	    template <class T>
+	    friend class ref;
+        template<class T>
+	    friend class ref_array;
+
 		template <typename T>
 		struct manager
 		{
-			static void object_destructor(void **p_void)
+			static void object_destroyer(void *p_void)
 			{
-				auto object = reinterpret_cast<T*>(p_void);
-				object->~T();
+				reinterpret_cast<T*>(p_void)->~T();
 			}
 
-			static void object_deleter(void **p_void)
+			static void object_deleter(void *p_void)
 			{
-				auto ptr = static_cast<T*>(*p_void);
+				auto ptr = static_cast<T*>(p_void);
 				delete ptr;
 			}
 
-			static void array_deleter(void **p_void)
+			static void array_deleter(void *p_void)
 			{
-				auto ptr = static_cast<T*>(*p_void);
+				auto ptr = static_cast<T*>(p_void);
 				delete[] ptr;
 			}
-
-			static constexpr bool is_small_type = sizeof(T) <= sizeof(void*);
 
 			manager() = delete;
 			manager(const manager &) = delete;
@@ -37,11 +39,24 @@ namespace gc
 			manager &operator=(manager &&) = delete;
 		};
 
-	public:		
+	public:
+		typedef void (*delete_func_type)(void *);
+
 		pointer() noexcept = default;
 
+		pointer(void *ptr, void *base_ptr, delete_func_type delete_func) noexcept
+			: _ptr(ptr), _base_ptr(base_ptr), _delete_func(delete_func)
+		{
+		}
+
 		pointer(const pointer &) = delete;
-		pointer(pointer &&) = delete;
+		pointer(pointer &&other) noexcept
+			: _ptr(other._ptr), _base_ptr(other._base_ptr), _delete_func(other._delete_func)
+		{
+			other._ptr = nullptr;
+			other._base_ptr = nullptr;
+			other._delete_func = nullptr;
+		}
 
 		~pointer() noexcept
 		{
@@ -49,96 +64,62 @@ namespace gc
 		}
 
 		pointer &operator=(const pointer &) = delete;
-		pointer &operator=(pointer &&) = delete;
-
-		template <typename T>
-		T *init() noexcept
+		pointer &operator=(pointer &&rhs) noexcept
 		{
-			_ref_count = 1;
-
-			if constexpr (manager<T>::is_small_type)
+			if (this != &rhs)
 			{
-				_is_object = true;
-				_ptr = nullptr;
+				_ptr = rhs._ptr;
+				_base_ptr = rhs._base_ptr;
+				_delete_func = rhs._delete_func;
 
-				// We don't need a destructor if it's trivially destructible
-				if constexpr (std::is_trivially_destructible_v<T>)
-					_deleter = nullptr;
-				else
-					_deleter = &manager<T>::object_destructor;
-				
-				return (T*)&_ptr;
+				rhs._ptr = nullptr;
+				rhs._base_ptr = nullptr;
+				rhs._delete_func = nullptr;
 			}
 
-			_is_object = false;
-			// We only allocate the memory
-			// we don't want to default initialize the object
-			_ptr = operator new(sizeof(T));
-			_deleter = &manager<T>::object_deleter;
-			
-			return static_cast<T*>(_ptr);
-		}
-
-		template <typename T>
-		T *init_array(const std::size_t size) noexcept
-		{
-			_ref_count = 1;
-			_is_object = false;
-			
-			if constexpr (std::is_default_constructible_v<T>)
-				_ptr = new T[size]{};
-			else
-				_ptr = operator new[](sizeof(T) * size);
-
-			_deleter = &manager<T>::array_deleter;
-
-			return static_cast<T*>(_ptr);
+			return *this;
 		}
 
 		void destroy() noexcept
 		{
-			if (_deleter)
-			{
-				try
-				{
-					_deleter(&_ptr);
-				} catch (...)
-				{
-				}
-			}
+			const auto ptr = _ptr;
+			const auto base_ptr = _base_ptr;
+            const auto delete_func = _delete_func;
+
 			_ptr = nullptr;
-			_deleter = nullptr;
-		}
+			_base_ptr = nullptr;
+			_delete_func = nullptr;
 
-		bool is_valid() const noexcept
-		{
-			return _is_object || _ptr;
-		}
+		    if (!ptr && !delete_func)
+                return;
 
-		bool has_references() const noexcept
-		{
-			return _ref_count != 0;
-		}
-
-		void set_references(const std::size_t count) noexcept
-		{
-			_ref_count = count;
-		}
-
-		void inc_references() noexcept
-		{
-			++_ref_count;
-		}
-
-		void dec_references() noexcept
-		{
-			--_ref_count;
+            try
+            {
+                if (ptr == base_ptr || base_ptr == nullptr)
+                    delete_func(ptr);
+                else
+                {
+                    delete_func(ptr);
+                    operator delete(base_ptr);
+                }
+            } catch (...)
+            {
+            }
 		}
 
 	private:
-		std::atomic_size_t _ref_count{};
-		void (*_deleter)(void **) = nullptr;
-		void *_ptr = nullptr;
-		bool _is_object = false;
+		/**
+         * Pointer to be object that is to be destroyed
+         */
+        void *_ptr = nullptr;
+		/**
+		 * Pointer to the memory that is to be freed
+		 * May be the same as _ptr
+		 */
+		void *_base_ptr = nullptr;
+        /**
+         * Function pointer to a templated function which knows how to free/destroy the object pointer by the _ptr
+         */
+        delete_func_type _delete_func = nullptr;
 	};
 }

@@ -13,7 +13,7 @@ struct test_struct
 	explicit test_struct(const int index) noexcept
 	{
 		ptr = new int(index);
-	}
+    }
 
 	~test_struct() noexcept
 	{
@@ -33,9 +33,8 @@ int run_test()
 	vec.reserve(test_size / 2);
 
 	while (wait_atomic)
-	{
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
-	}
+
 	ref sum(0);
 
 	for (int i = 0; i < test_size; ++i)
@@ -65,14 +64,14 @@ int main()
 		gc::start();
 		std::this_thread::sleep_for(3s);
 
-		const auto start_time = steady_clock::now();
+		const auto start_time = high_resolution_clock::now();
 		wait_atomic = false;
 
 		for (auto &t : threads)
 			t.join();
 
-		const auto time_needed = duration_cast<milliseconds>(steady_clock::now() - start_time).count();
-		std::cout << "Time Needed: " << time_needed << std::endl;
+		const auto time_needed = duration_cast<milliseconds>(high_resolution_clock::now() - start_time).count();
+		std::cout << "Time Needed: " << time_needed << "ms" << std::endl;
 	}
 
 	std::this_thread::sleep_for(1s);
