@@ -15,8 +15,8 @@ namespace gc
 	static std::mutex pages_list_mutex{};
 
 	static std::atomic_int32_t gc_count{};
+	static std::atomic_bool gc_alive{};
 	static std::atomic_bool gc_paused{};
-	static std::atomic_bool gc_running{};
 	static std::condition_variable gc_cv{};
 	static std::mutex gc_mutex{};
 	static std::thread gc_thread{};
@@ -24,36 +24,39 @@ namespace gc
 	static void run()
 	{
 		std::lock_guard lock{ pages_list_mutex };
+		if (pages_list.empty())
+			return;
 		++gc_count;
 		for (auto *ptr : pages_list)
 			ptr->clear();
 	}
 
-	void start()
+	void start(const std::size_t timeout)
 	{
-		using namespace std::chrono_literals;
-		
-		gc_running = true;
+		gc_alive = true;
+		gc_paused = false;
 		pages_list.reserve(128);
 
-		gc_thread = std::thread([]()
+		gc_thread = std::thread([timeout]
 		{
-			while (gc_running)
+			while (gc_alive)
 			{
-				std::unique_lock lock{ gc_mutex };
-				gc_cv.wait_for(lock, 250ms, [] { return !gc_paused; });
+				// Set up the Condition Variable
+				std::unique_lock gc_lock{ gc_mutex };
+				gc_cv.wait_for(gc_lock, std::chrono::milliseconds(timeout), [] { return !gc_paused; });
 
-				if (!gc_running)
+				if (!gc_alive)
 					break;
 
-                run();
+				// Run the GC
+				run();
 			}
 		});
 	}
 
-	void force_run()
+	void suggest_run()
 	{
-        run();
+        gc_cv.notify_all();
 	}
 
 	bool is_paused() noexcept
@@ -71,7 +74,25 @@ namespace gc
 		gc_paused = false;
 	}
 
-    void delegate_destruction(pointer &&pointer)
+	void shutdown()
+	{
+		// Resume and stop the GC so it may quit the loop
+		gc_paused = false;
+		gc_alive = false;
+		gc_cv.notify_all();
+
+		if (gc_thread.joinable())
+			gc_thread.join();
+
+		// Free all the allocated memory
+		std::lock_guard lock{ pages_list_mutex };
+		std::cout << "Run Count: " << gc_count << '\n';
+
+		pages_list.clear();
+		gc_paused = true;
+	}
+
+    void delegate_destruction(destroyer &&destroyer)
     {
 		struct thread_page
 		{
@@ -80,6 +101,9 @@ namespace gc
 				std::lock_guard lock{ pages_list_mutex };
 				pages_list.emplace_back(&data);
 			}
+
+			thread_page(const thread_page &) = delete;
+			thread_page(thread_page &&) = delete;
 
 			~thread_page()
 			{
@@ -90,28 +114,14 @@ namespace gc
 					pages_list.erase(it, pages_list.end());
 			}
 
+			thread_page &operator=(const thread_page &) = delete;
+			thread_page &operator=(thread_page &&) = delete;
+
 			gc::page data{};
 		};
 
         static thread_local thread_page local_page{};
 
-		local_page.data.add(std::move(pointer));
+		local_page.data.add(std::move(destroyer));
     }
-
-	void shutdown()
-	{
-		// Resume and stop the GC so it may quit the loop
-		gc_paused = false;
-		gc_running = false;
-		gc_cv.notify_all();
-
-		gc_thread.join();
-
-		// Free all the allocated memory
-        std::lock_guard lock{ pages_list_mutex };
-        std::cout << "Run Count: " << gc_count << '\n';
-
-        pages_list.clear();
-		gc_paused = true;
-	}
 }

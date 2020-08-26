@@ -74,7 +74,7 @@ int main()
 		std::cout << "Time Needed: " << time_needed << "ms" << std::endl;
 	}
 
-	std::this_thread::sleep_for(1s);
+	std::this_thread::sleep_for(3s);
 	gc::shutdown();
 	return 0;
 }
