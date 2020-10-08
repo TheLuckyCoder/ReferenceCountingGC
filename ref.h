@@ -8,80 +8,60 @@
 
 namespace gc
 {
-	template<class T, class C = std::atomic_uint8_t>
+	template <class T, class C = std::atomic_uint8_t>
 	class ref
 	{
 	public:
-		using counter = std::enable_if_t<std::is_same_v<C, std::atomic_uint8_t>
+		using counter = C; /*typename std::enable_if_t<std::is_same_v<C, std::atomic_uint8_t>
 												  || std::is_same_v<C, std::atomic_uint16_t>
 												  || std::is_same_v<C, std::atomic_uint32_t>
-												  || std::is_same_v<C, std::atomic_uint64_t>>;
+												  || std::is_same_v<C, std::atomic_uint64_t>>;*/
+	public:
 
 		explicit ref(T *ptr)
-			: _ptr(ptr),
-			  _ref_count(new counter{ 1 }),
-			  _one_alloc(false)
+			: _ptr(ptr)
 		{
+			auto block = new control_block_ptr<T, C>(ptr);
+			_ref_count = &block->counter;
+			_block = block;
 		}
 
 		explicit ref(T &&arg)
-			: _one_alloc(true)
 		{
-			init_one_allocation();
-			new(_ptr) T(std::forward<T>(arg));
+			auto block = new control_block_object<T, C>(std::forward<T>(arg));
+			_ptr = &block->obj;
+			_ref_count = &block->counter;
+			_block = block;
 		}
 
-		template<typename... Args>
+		template <typename... Args>
 		explicit ref(Args &&...args)
-			: _one_alloc(true)
 		{
-			init_one_allocation();
-			new(_ptr) T(std::forward<Args>(args)...);
+			auto block = new control_block_object<T, C>(std::forward<Args>(args)...);
+			_ptr = &block->obj;
+			_ref_count = &block->counter;
+			_block = block;
 		}
 
 		ref(const ref &rhs) noexcept
-			: _ptr(rhs._ptr), _ref_count(rhs._ref_count), _one_alloc(rhs._one_alloc)
+			: _ptr(rhs._ptr), _ref_count(rhs._ref_count), _block(rhs._block)
 		{
 			inc_ref();
 		}
 
 		ref(ref &&rhs) noexcept
-			: _ptr(rhs._ptr), _ref_count(rhs._ref_count), _one_alloc(rhs._one_alloc)
+			: _ptr(rhs._ptr), _ref_count(rhs._ref_count), _block(rhs._block)
 		{
 			rhs._ptr = nullptr;
 			rhs._ref_count = nullptr;
+			rhs._block = nullptr;
 		}
 
 		~ref() noexcept
 		{
 			if (_ref_count && dec_ref() == 0)
 			{
-				if constexpr (std::is_trivially_destructible_v<T>)
-				{
-					// Free the memory directly if it is trivially destructible
-                    if (_one_alloc)
-                        operator delete(reinterpret_cast<void *>(_ref_count), TOTAL_SIZE);
-                    else
-                    {
-                        delete _ref_count;
-                        delete _ptr;
-                    }
-				} else
-				{
-					// Delegate the destruction to the garbage collector
-					void *memory_ptr = nullptr;
-					destroyer::type type;
-
-					if (_one_alloc)
-					{
-						// one allocation was made so we specify the pointer to the memory which will be deleted after the object has been destroyed
-						type = destroyer::type::DESTROYER;
-						memory_ptr = reinterpret_cast<void *>(_ref_count);
-					} else
-						type = destroyer::type::DELETER;
-
-					delegate_destruction(destroyer::create_destroyer<T>(_ptr, type, memory_ptr, TOTAL_SIZE));
-				}
+				delegate_destruction(destroyer(_block));
 
 				_ptr = nullptr;
 				_ref_count = nullptr;
@@ -93,11 +73,11 @@ namespace gc
 			if (this == &rhs)
 				return *this;
 
-			rhs.inc();
+			rhs.inc_ref();
 
 			_ptr = rhs._ptr;
 			_ref_count = rhs._ref_count;
-			_one_alloc = rhs._one_alloc;
+			_block = rhs._block;
 
 			return *this;
 		}
@@ -109,24 +89,18 @@ namespace gc
 
 			_ptr = rhs._ptr;
 			_ref_count = rhs._ref_count;
-			_one_alloc = rhs._one_alloc;
+			_block = rhs._block;
 
 			rhs._ptr = nullptr;
 			rhs._ref_count = nullptr;
-			rhs._deleter = nullptr;
+			rhs._block = nullptr;
 
 			return *this;
 		}
 
-		const T *get() const
-		{
-			return _ptr;
-		}
+		const T *get() const { return _ptr; }
 
-		T *get()
-		{
-			return _ptr;
-		}
+		T *get() { return _ptr; }
 
 		T &operator*() noexcept { return *_ptr; }
 
@@ -137,21 +111,6 @@ namespace gc
 		const T *operator->() const noexcept { return _ptr; }
 
 	private:
-		
-		static constexpr std::size_t TOTAL_SIZE = sizeof(counter) + sizeof(T);
-
-		void init_one_allocation()
-		{
-			// Allocate the entire memory needed for the reference counter + the object itself
-			void *memory = operator new(TOTAL_SIZE);
-
-			// Store the reference counter in the first part of the allocation
-			_ref_count = static_cast<counter *>(memory);
-			new(_ref_count) counter{ 1 };
-			// Move the current pointer past the location of the reference counter
-			// and use that memory for the object
-			_ptr = reinterpret_cast<T *>(_ref_count + 1);
-		}
 
 		auto inc_ref()
 		{
@@ -163,9 +122,9 @@ namespace gc
 			return --(*_ref_count);
 		}
 
-		T *_ptr = nullptr;
-		counter *_ref_count = nullptr;
-		const bool _one_alloc;
+		T *_ptr;
+		counter *_ref_count;
+		abstract_control_block *_block;
 	};
 
 	template<class T, class C = std::atomic_uint8_t>
@@ -175,14 +134,22 @@ namespace gc
 
 	public:
 		explicit ref_array(const std::size_t size)
-			: _data(new T[size]), _ref_count(new counter{ 1 }), _size(size)
+			: _data(new T[size]()), _size(size)
 		{
+			auto block = new control_block_array(_data);
+			_ref_count = &block->counter;
+			_block = block;
 		}
 
 		ref_array(const std::initializer_list<T> init)
-			: _data(operator new[](sizeof(T) * init.size())), _ref_count(new counter{ 1 }), _size(init.size())
+			: _size(init.size())
 		{
-			std::copy(init.begin(), init.end(), _data);
+			auto block = new control_block_array(init.size());
+			_data = &block->ptr;
+			_ref_count = &block->counter;
+			_block = block;
+
+			std::move(init.begin(), init.end(), _data);
 		}
 
 		ref_array(const ref_array &rhs) noexcept
@@ -196,7 +163,6 @@ namespace gc
 		{
 			rhs._data = nullptr;
 			rhs._ref_count = nullptr;
-			rhs._deleter = nullptr;
 			rhs._size = 0;
 		}
 
@@ -204,7 +170,7 @@ namespace gc
 		{
 			if (_ref_count && dec_ref() == 0)
 			{
-				delegate_destruction(destroyer::create_destroyer<T>(_data, destroyer::type::ARRAY_DELETER, _ref_count, sizeof(T) * size()));
+				delegate_destruction(destroyer(_block));
 
 				_data = nullptr;
 				_ref_count = nullptr;
@@ -216,11 +182,11 @@ namespace gc
 			if (this == &rhs)
 				return *this;
 
+			inc_ref();
+
 			_data = rhs._data;
 			_ref_count = rhs._ref_count;
 			_size = rhs._size;
-
-			inc_ref();
 
 			return *this;
 		}
@@ -275,11 +241,9 @@ namespace gc
 			return --(*_ref_count);
 		}
 
-		T *_data = nullptr;
-		counter *_ref_count = nullptr;
-		std::size_t _size{};
+		T *_data;
+		counter *_ref_count;
+		std::size_t _size;
+		abstract_control_block *_block;
 	};
 }
-
-using gc::ref;
-using gc::ref_array;

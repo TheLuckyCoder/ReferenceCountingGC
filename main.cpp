@@ -29,17 +29,17 @@ struct test_struct
 int run_test()
 {
 	constexpr auto test_size = 65536;
-	std::vector<ref<test_struct>> vec;
+	std::vector<gc::ref<test_struct>> vec;
 	vec.reserve(test_size / 2);
 
 	while (wait_atomic)
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
-	ref sum(0);
+	gc::ref<int> sum(0);
 
 	for (int i = 0; i < test_size; ++i)
 	{
-		ref<test_struct> a(i);
+		gc::ref<test_struct> a(i);
 		*sum += a->get();
 		if (i & 1)
 			vec.push_back(std::move(a));

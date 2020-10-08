@@ -42,7 +42,6 @@ namespace gc
 
 		void emplace_front()
 		{
-			//_data.emplace(std::make_unique<page_array>());
 			_data.emplace(_data.begin(), std::make_unique<page_array>());
 		}
 
@@ -67,8 +66,8 @@ namespace gc
 		        std::lock_guard lock{ _mutex };
 				if (_data.size() <= 1)
 					break;
+
 				_data.pop_back();
-                //_data.pop();
             }
         }
 
