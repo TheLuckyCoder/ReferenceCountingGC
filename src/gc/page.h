@@ -8,7 +8,7 @@
 #include "destroyer.h"
 
 #ifndef GC_PAGE_SIZE
-#define GC_PAGE_SIZE 8192
+#	define GC_PAGE_SIZE 8192
 #endif
 
 namespace gc

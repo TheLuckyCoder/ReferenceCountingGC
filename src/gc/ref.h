@@ -17,7 +17,7 @@ namespace gc
 	class ref
 	{
 	public:
-		// This does not compile on MSVC
+		// This does not compile on MSVC but works on GCC and Clang
 		using counter = C; /*typename std::enable_if_t<std::is_same_v<C, std::atomic_uint8_t>
 												  || std::is_same_v<C, std::atomic_uint16_t>
 												  || std::is_same_v<C, std::atomic_uint32_t>
@@ -28,15 +28,15 @@ namespace gc
 			: _ptr(ptr)
 		{
 			auto block = new control_block_ptr<T, C>(ptr);
-			_ref_count = &block->counter;
+			_ref_count = &block->_counter;
 			_block = block;
 		}
 
 		explicit ref(T &&arg)
 		{
 			auto block = new control_block_object<T, C>(std::forward<T>(arg));
-			_ptr = &block->obj;
-			_ref_count = &block->counter;
+			_ptr = &block->_obj;
+			_ref_count = &block->_counter;
 			_block = block;
 		}
 
@@ -44,8 +44,8 @@ namespace gc
 		explicit ref(Args &&...args)
 		{
 			auto block = new control_block_object<T, C>(std::forward<Args>(args)...);
-			_ptr = &block->obj;
-			_ref_count = &block->counter;
+			_ptr = &block->_obj;
+			_ref_count = &block->_counter;
 			_block = block;
 		}
 

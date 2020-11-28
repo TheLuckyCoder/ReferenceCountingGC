@@ -44,4 +44,4 @@ namespace gc
 	 * are no longer needed
 	 */
 	void shutdown();
-};
+}

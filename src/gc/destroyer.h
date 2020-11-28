@@ -13,40 +13,40 @@ namespace gc
 	template <class T, class C>
 	struct control_block_object final : abstract_control_block
 	{
-		T obj;
-		C counter{ 1 };
+		T _obj;
+		C _counter{ 1 };
 
 		template <typename ... Args>
-		explicit control_block_object(Args &&... args) : obj(std::forward<Args>(args)...) {}
+		explicit control_block_object(Args &&... args) : _obj(std::forward<Args>(args)...) {}
 	};
 
 	template <class T, class C>
 	struct control_block_ptr final : abstract_control_block
 	{
-		T *ptr;
-		C counter{ 1 };
+		T *_ptr;
+		C _counter{ 1 };
 
-		explicit control_block_ptr(T *ptr) : ptr(ptr) {}
+		explicit control_block_ptr(T *ptr) : _ptr(ptr) {}
 
 		~control_block_ptr() override
 		{
-			delete ptr;
+			delete _ptr;
 		}
 	};
 
 	template <class T, class C>
 	struct control_block_array final : abstract_control_block
 	{
-		T *ptr;
-		C counter{ 1 };
+		T *_ptr;
+		C _counter{ 1 };
 
-		explicit control_block_array(const std::size_t size) : ptr(operator new[](sizeof(T) * size)) {}
+		explicit control_block_array(const std::size_t size) : _ptr(operator new[](sizeof(T) * size)) {}
 
-		explicit control_block_array(T *ptr) : ptr(ptr) {}
+		explicit control_block_array(T *ptr) : _ptr(ptr) {}
 
 		~control_block_array() override
 		{
-			delete[] ptr;
+			delete[] _ptr;
 		}
 	};
 
