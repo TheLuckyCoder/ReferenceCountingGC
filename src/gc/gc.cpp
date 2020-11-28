@@ -1,6 +1,7 @@
 #include "gc.h"
 
 #include "page.h"
+#include "destroyer.h"
 
 #include <algorithm>
 #include <atomic>
@@ -11,7 +12,7 @@
 
 namespace gc
 {
-	static std::vector<gc::page*> pages_list{};
+	static std::vector<gc::page *> pages_list{};
 	static std::mutex pages_list_mutex{};
 
 	static std::atomic_int32_t gc_count{};
@@ -37,13 +38,14 @@ namespace gc
 		gc_paused = false;
 		pages_list.reserve(128);
 
-		gc_thread = std::thread([timeout]
+		const auto gc_loop = [timeout]
 		{
 			while (gc_alive)
 			{
 				// Set up the Condition Variable
 				std::unique_lock gc_lock{ gc_mutex };
-				gc_cv.wait_for(gc_lock, std::chrono::milliseconds(timeout), [] { return !gc_paused; });
+				gc_cv.wait_for(gc_lock, std::chrono::milliseconds(timeout),
+							   [] { return !gc_paused; });
 
 				if (!gc_alive)
 					break;
@@ -51,12 +53,14 @@ namespace gc
 				// Run the GC
 				run();
 			}
-		});
+		};
+
+		gc_thread = std::thread(gc_loop);
 	}
 
 	void suggest_run()
 	{
-        gc_cv.notify_all();
+		gc_cv.notify_all();
 	}
 
 	bool is_paused() noexcept
@@ -92,8 +96,8 @@ namespace gc
 		gc_paused = true;
 	}
 
-    void delegate_destruction(destroyer &&destroyer)
-    {
+	void _delegate_destruction(destroyer &&destroyer)
+	{
 		struct thread_page
 		{
 			thread_page()
@@ -120,8 +124,8 @@ namespace gc
 			gc::page data{};
 		};
 
-        static thread_local thread_page local_page{};
+		static thread_local thread_page local_page{};
 
 		local_page.data.add(std::move(destroyer));
-    }
+	}
 }

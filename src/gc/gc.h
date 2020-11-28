@@ -1,16 +1,16 @@
 #pragma once
 
-#include "destroyer.h"
+#include "ref.h"
 
 namespace gc
 {
 	/**
 	 * Start the Garbage Collector Thread
-	 * This should be called at the start of a program or before oyu start using gc::ref or gc::ref_array objects
+	 * This should be called at the start of a program or before any gc::ref or gc::ref_array objects are created
 	 *
-	 * @param timeout the time period at which the GC  should run in milliseconds
+	 * @param timeout the time period at which the GC should run periodically, in milliseconds
 	 */
-	void start(std::size_t timeout = 250);
+	void start(std::size_t timeout = 200);
 
 	/**
 	 * Suggests to the GC that it should run now
@@ -44,10 +44,4 @@ namespace gc
 	 * are no longer needed
 	 */
 	void shutdown();
-
-
-	/**
-	 * This is only to be used by the GC API
-	 */
-	void delegate_destruction(gc::destroyer &&destroyer);
 };

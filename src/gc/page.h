@@ -17,22 +17,24 @@ namespace gc
 	{
 	public:
 		using value_type = gc::destroyer;
-		using reference = value_type&;
-		using const_reference = const value_type&;
-		using iterator = value_type*;
-		using const_iterator = const value_type*;
+		using reference = value_type &;
+		using const_reference = const value_type &;
+		using iterator = value_type *;
+		using const_iterator = const value_type *;
 
 		page()
 		{
 			emplace_front();
-        }
+		}
+
 		page(const page &) = delete;
 		page(page &&) = delete;
+
 		~page()
-        {
+		{
 			std::lock_guard lock{ _mutex };
 			_data.clear();
-        }
+		}
 
 		page &operator=(const page &) = delete;
 		page &operator=(page &&) = delete;
@@ -47,34 +49,34 @@ namespace gc
 
 	public:
 		void add(gc::destroyer &&destroyer)
-        {
-            std::lock_guard lock{ _mutex };
+		{
+			std::lock_guard lock{ _mutex };
 			if (_last_empty_index == CAPACITY)
 			{
 				emplace_front();
 				_last_empty_index = 0;
 			}
 
-            auto &arr = *_data.front();
-            arr[_last_empty_index++] = std::move(destroyer);
-        }
+			auto &arr = *_data.front();
+			arr[_last_empty_index++] = std::move(destroyer);
+		}
 
 		void clear()
-        {
-		    while (true)
-            {
-		        std::lock_guard lock{ _mutex };
+		{
+			while (true)
+			{
+				std::lock_guard lock{ _mutex };
 				if (_data.size() <= 1)
 					break;
 
 				_data.pop_back();
-            }
-        }
+			}
+		}
 
 	private:
 		using page_array = std::array<destroyer, CAPACITY>;
 
-	    mutable std::mutex _mutex{};
+		mutable std::mutex _mutex{};
 		std::vector<std::unique_ptr<page_array>> _data{};
 		std::size_t _last_empty_index{};
 	};

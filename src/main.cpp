@@ -2,20 +2,20 @@
 #include <thread>
 #include <vector>
 
-#include "ref.h"
+#include "gc/gc.h"
 
 static std::atomic_bool wait_atomic{ true };
 
-struct test_struct
+struct int_test_struct
 {
 	int *ptr;
 
-	explicit test_struct(const int index) noexcept
+	explicit int_test_struct(const int index) noexcept
 	{
 		ptr = new int(index);
-    }
+	}
 
-	~test_struct() noexcept
+	~int_test_struct() noexcept
 	{
 		delete ptr;
 	}
@@ -29,7 +29,7 @@ struct test_struct
 int run_test()
 {
 	constexpr auto test_size = 65536;
-	std::vector<gc::ref<test_struct>> vec;
+	std::vector<gc::ref<int_test_struct>> vec;
 	vec.reserve(test_size / 2);
 
 	while (wait_atomic)
@@ -39,7 +39,7 @@ int run_test()
 
 	for (int i = 0; i < test_size; ++i)
 	{
-		gc::ref<test_struct> a(i);
+		gc::ref<int_test_struct> a(i);
 		*sum += a->get();
 		if (i & 1)
 			vec.push_back(std::move(a));

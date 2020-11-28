@@ -4,14 +4,20 @@
 #include <type_traits>
 #include <initializer_list>
 
-#include "gc.h"
+#include "destroyer.h"
 
 namespace gc
 {
+	/**
+	 * This is an internal API that should not be used
+	 */
+	void _delegate_destruction(gc::destroyer &&destroyer);
+
 	template <class T, class C = std::atomic_uint8_t>
 	class ref
 	{
 	public:
+		// This does not compile on MSVC
 		using counter = C; /*typename std::enable_if_t<std::is_same_v<C, std::atomic_uint8_t>
 												  || std::is_same_v<C, std::atomic_uint16_t>
 												  || std::is_same_v<C, std::atomic_uint32_t>
@@ -61,7 +67,7 @@ namespace gc
 		{
 			if (_ref_count && dec_ref() == 0)
 			{
-				delegate_destruction(destroyer(_block));
+				_delegate_destruction(destroyer(_block));
 
 				_ptr = nullptr;
 				_ref_count = nullptr;
@@ -127,7 +133,7 @@ namespace gc
 		abstract_control_block *_block;
 	};
 
-	template<class T, class C = std::atomic_uint8_t>
+	template <class T, class C = std::atomic_uint8_t>
 	class ref_array
 	{
 		using counter = C;
@@ -170,7 +176,7 @@ namespace gc
 		{
 			if (_ref_count && dec_ref() == 0)
 			{
-				delegate_destruction(destroyer(_block));
+				_delegate_destruction(destroyer(_block));
 
 				_data = nullptr;
 				_ref_count = nullptr;
