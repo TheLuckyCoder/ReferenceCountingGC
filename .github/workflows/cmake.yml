@@ -3,8 +3,7 @@ name: CMake
 on: [push]
 
 env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
-  BUILD_TYPE: Debug, Release
+  BUILD_TYPE: Release
 
 jobs:
   build:
@@ -14,7 +13,7 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: Create Build Environment
-      run: cmake -E make_directory ${{runner.workspace}}/build
+      run: cmake -E make_directory ${{runner.workspace}}/build/Release
 
     - name: Configure CMake
       # Use a bash shell so we can use the same syntax for environment variable
@@ -31,3 +30,6 @@ jobs:
       shell: bash
       # Execute the build.  You can specify a specific target with "--target <NAME>"
       run: cmake --build . --config $BUILD_TYPE
+      
+    - name: clang-tidy check
+      uses: muxee/clang-tidy-action@0.0.1-rc1
